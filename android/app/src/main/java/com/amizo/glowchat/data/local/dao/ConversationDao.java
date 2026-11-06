@@ -2,9 +2,8 @@ package com.amizo.glowchat.data.local.dao;
 
 import androidx.lifecycle.LiveData;
 import androidx.room.Dao;
-import androidx.room.Insert;
-import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
+import androidx.room.Upsert;
 
 import com.amizo.glowchat.data.local.entity.ConversationEntity;
 
@@ -47,10 +46,10 @@ public interface ConversationDao {
             "WHERE conversationId = :conversationId LIMIT 1")
     LiveData<ConversationEntity> observeConversation(String conversationId);
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     void insertOrUpdate(ConversationEntity conversation);
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     void insertOrUpdateAll(List<ConversationEntity> conversations);
 
     @Query("DELETE FROM conversations WHERE conversationId = :conversationId")
