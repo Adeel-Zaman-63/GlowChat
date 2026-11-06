@@ -146,6 +146,17 @@
             android:paddingBottom="8dp"
             android:visibility="gone" />
 
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/button_new_chat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="20dp"
+            android:contentDescription="@string/new_chat"
+            android:src="@android:drawable/ic_input_add"
+            app:backgroundTint="@color/glowchat_primary"
+            app:tint="@color/glowchat_on_primary" />
+
     </FrameLayout>
 
     <com.google.android.material.bottomnavigation.BottomNavigationView

@@ -1,10 +1,10 @@
 package com.amizo.glowchat;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.amizo.glowchat.data.local.entity.ConversationEntity;
+import com.amizo.glowchat.ui.chats.ChatActivity;
 import com.amizo.glowchat.ui.chats.ConversationAdapter;
 import com.amizo.glowchat.ui.chats.ConversationViewModel;
 import com.amizo.glowchat.ui.main.MainViewModel;
@@ -37,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout emptyChatsView;
     private RecyclerView conversationRecyclerView;
     private ChipGroup chatFilterGroup;
+    private View newChatButton;
 
     private ConversationAdapter conversationAdapter;
 
@@ -84,6 +86,15 @@ public class MainActivity extends AppCompatActivity {
         emptyTitle = findViewById(R.id.text_empty_title);
         emptyMessage = findViewById(R.id.text_empty_message);
         emptyChatsView = findViewById(R.id.empty_chats_view);
+        newChatButton = findViewById(R.id.button_new_chat);
+
+        newChatButton.setOnClickListener(view -> {
+            Intent intent = new Intent(
+                    MainActivity.this,
+                    com.amizo.glowchat.ui.chats.NewChatActivity.class
+            );
+            startActivity(intent);
+        });
 
         conversationRecyclerView =
                 findViewById(R.id.recycler_conversations);
@@ -93,11 +104,12 @@ public class MainActivity extends AppCompatActivity {
         );
 
         conversationAdapter = new ConversationAdapter(conversation -> {
-            Toast.makeText(
-                    this,
-                    "Conversation screen will be added next.",
-                    Toast.LENGTH_SHORT
-            ).show();
+            Intent intent = new Intent(this, ChatActivity.class);
+            intent.putExtra(
+                    ChatActivity.EXTRA_CONVERSATION_ID,
+                    conversation.conversationId
+            );
+            startActivity(intent);
         });
 
         conversationRecyclerView.setAdapter(conversationAdapter);
@@ -227,6 +239,7 @@ public class MainActivity extends AppCompatActivity {
 
         switch (destination) {
             case "contacts":
+                newChatButton.setVisibility(View.GONE);
                 chatFilterGroup.setVisibility(View.GONE);
                 conversationRecyclerView.setVisibility(View.GONE);
                 emptyChatsView.setVisibility(View.VISIBLE);
@@ -235,6 +248,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
             case "status":
+                newChatButton.setVisibility(View.GONE);
                 chatFilterGroup.setVisibility(View.GONE);
                 conversationRecyclerView.setVisibility(View.GONE);
                 emptyChatsView.setVisibility(View.VISIBLE);
@@ -243,6 +257,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
             case "calls":
+                newChatButton.setVisibility(View.GONE);
                 chatFilterGroup.setVisibility(View.GONE);
                 conversationRecyclerView.setVisibility(View.GONE);
                 emptyChatsView.setVisibility(View.VISIBLE);
@@ -252,6 +267,7 @@ public class MainActivity extends AppCompatActivity {
 
             case "chats":
             default:
+                newChatButton.setVisibility(View.VISIBLE);
                 chatFilterGroup.setVisibility(View.VISIBLE);
 
                 String selectedFilter =

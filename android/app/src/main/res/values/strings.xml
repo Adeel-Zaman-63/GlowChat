@@ -23,4 +23,15 @@
     <string name="conversation_avatar">Conversation profile picture</string>
     <string name="unknown_conversation">Unknown conversation</string>
     <string name="no_messages_yet">No messages yet</string>
+
+    <string name="chat_status_offline">Offline</string>
+    <string name="voice_call">Voice call</string>
+    <string name="chat_options">Chat options</string>
+    <string name="chat_empty_message">No messages yet. Send a message to start chatting.</string>
+    <string name="type_message">Type a message...</string>
+    <string name="send_message">Send message</string>
+    <string name="new_chat">New chat</string>
+    <string name="back">Back</string>
+    <string name="search_username">Search by GlowChat username</string>
+    <string name="new_chat_empty_message">Find people using their GlowChat username. Contact discovery will be available when account services are connected.</string>
 </resources>
