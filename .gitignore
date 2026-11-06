@@ -22,7 +22,7 @@ captures/
 *.aab
 
 # PHP
-/vendor/
+**/vendor/
 composer.phar
 
 # Node.js
