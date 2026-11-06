@@ -139,4 +139,102 @@ final class SessionRepository
 
         return $statement->rowCount() > 0;
     }
+
+    public function listActiveForUser(
+        int $userId,
+        int $currentSessionId
+    ): array {
+        $statement = $this->pdo->prepare("
+            SELECT
+                public_id AS session_id,
+                device_id,
+                device_name,
+                created_at,
+                last_used_at,
+                expires_at,
+                (id = :current_session_id) AS is_current
+            FROM user_sessions
+            WHERE user_id = :user_id
+              AND revoked_at IS NULL
+              AND expires_at > CURRENT_TIMESTAMP
+            ORDER BY
+                last_used_at DESC NULLS LAST,
+                created_at DESC
+        ");
+
+        $statement->execute([
+            'user_id' => $userId,
+            'current_session_id' => $currentSessionId,
+        ]);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function revokeOwnedSession(
+        int $sessionId,
+        int $userId
+    ): bool {
+        $statement = $this->pdo->prepare("
+            UPDATE user_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE id = :session_id
+              AND user_id = :user_id
+              AND revoked_at IS NULL
+        ");
+
+        $statement->execute([
+            'session_id' => $sessionId,
+            'user_id' => $userId,
+        ]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    public function revokeOwnedByPublicId(
+        int $userId,
+        string $publicId
+    ): ?int {
+        $statement = $this->pdo->prepare("
+            UPDATE user_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE public_id = :public_id
+              AND user_id = :user_id
+              AND revoked_at IS NULL
+            RETURNING id
+        ");
+
+        $statement->execute([
+            'public_id' => $publicId,
+            'user_id' => $userId,
+        ]);
+
+        $sessionId = $statement->fetchColumn();
+
+        return $sessionId === false ? null : (int) $sessionId;
+    }
+
+    public function revokeOtherSessions(
+        int $userId,
+        int $currentSessionId
+    ): array {
+        $statement = $this->pdo->prepare("
+            UPDATE user_sessions
+            SET revoked_at = CURRENT_TIMESTAMP
+            WHERE user_id = :user_id
+              AND id <> :current_session_id
+              AND revoked_at IS NULL
+            RETURNING id
+        ");
+
+        $statement->execute([
+            'user_id' => $userId,
+            'current_session_id' => $currentSessionId,
+        ]);
+
+        return array_map(
+            'intval',
+            $statement->fetchAll(PDO::FETCH_COLUMN)
+        );
+    }
+
 }

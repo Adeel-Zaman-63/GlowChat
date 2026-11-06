@@ -37,8 +37,10 @@ final class SessionAuthenticationService
             throw new AuthenticationException();
         }
 
+        $session['_session_id'] = (int) $session['id'];
+
         $this->sessions->updateLastUsed(
-            (int) $session['id']
+            $session['_session_id']
         );
 
         unset($session['id']);
