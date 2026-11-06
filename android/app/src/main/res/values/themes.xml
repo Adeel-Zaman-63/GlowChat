@@ -1,0 +1,18 @@
+<resources>
+    <style name="Base.Theme.GlowChat" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/glowchat_primary</item>
+        <item name="colorOnPrimary">@color/glowchat_on_primary</item>
+        <item name="colorSecondary">@color/glowchat_secondary</item>
+        <item name="colorOnSecondary">@color/glowchat_on_secondary</item>
+        <item name="android:colorBackground">@color/glowchat_background</item>
+        <item name="colorSurface">@color/glowchat_surface</item>
+        <item name="colorOnSurface">@color/glowchat_on_surface</item>
+        <item name="colorOutline">@color/glowchat_outline</item>
+        <item name="android:statusBarColor">@color/glowchat_background</item>
+        <item name="android:navigationBarColor">@color/glowchat_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="Theme.GlowChat" parent="Base.Theme.GlowChat" />
+</resources>

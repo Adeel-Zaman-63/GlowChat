@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">GlowChat</string>
+    <string name="search">Search</string>
+    <string name="profile_settings">Profile and settings</string>
+
+    <string name="filter_all">All</string>
+    <string name="filter_unread">Unread</string>
+    <string name="filter_favorites">Favorites</string>
+    <string name="filter_groups">Groups</string>
+    <string name="filter_archived">Archived</string>
+
+    <string name="empty_chats_title">Your chats will appear here</string>
+    <string name="empty_chats_message">Start a conversation to stay connected.</string>
+
+    <string name="contacts_title">Your contacts will appear here</string>
+    <string name="contacts_message">Find people and connect with them on GlowChat.</string>
+
+    <string name="status_title">Stay updated with status</string>
+    <string name="status_message">Your contacts’ latest status updates will appear here.</string>
+
+    <string name="calls_title">Your calls will appear here</string>
+    <string name="calls_message">Your voice and video call history will appear here.</string>
+    <string name="conversation_avatar">Conversation profile picture</string>
+    <string name="unknown_conversation">Unknown conversation</string>
+    <string name="no_messages_yet">No messages yet</string>
+</resources>

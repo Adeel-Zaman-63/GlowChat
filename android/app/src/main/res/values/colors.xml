@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="glowchat_primary">#2563EB</color>
+    <color name="glowchat_on_primary">#FFFFFF</color>
+    <color name="glowchat_secondary">#7C3AED</color>
+    <color name="glowchat_on_secondary">#FFFFFF</color>
+
+    <color name="glowchat_background">#F8FAFC</color>
+    <color name="glowchat_surface">#FFFFFF</color>
+    <color name="glowchat_on_surface">#111827</color>
+    <color name="glowchat_outline">#D1D5DB</color>
+
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
