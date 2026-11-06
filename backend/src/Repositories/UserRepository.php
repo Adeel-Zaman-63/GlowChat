@@ -47,6 +47,34 @@ final class UserRepository
         return (bool) $statement->fetchColumn();
     }
 
+    public function findForAuthentication(string $identifier): ?array
+    {
+        $statement = $this->pdo->prepare("
+            SELECT
+                id,
+                public_id,
+                username,
+                email,
+                password_hash,
+                display_name,
+                account_status,
+                created_at
+            FROM users
+            WHERE LOWER(username) = LOWER(:username)
+               OR LOWER(email) = LOWER(:email)
+            LIMIT 1
+        ");
+
+        $statement->execute([
+            'username' => $identifier,
+            'email' => $identifier,
+        ]);
+
+        $user = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return $user === false ? null : $user;
+    }
+
     public function create(
         string $username,
         string $email,
