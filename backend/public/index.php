@@ -16,6 +16,7 @@ date_default_timezone_set(AppConfig::timezone());
 
 $app = AppFactory::create();
 
+$app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
 
 $errorMiddleware = $app->addErrorMiddleware(
