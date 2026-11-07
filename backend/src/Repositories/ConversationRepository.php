@@ -208,7 +208,7 @@ final class ConversationRepository
         int $adminUserId
     ): ?array {
         $statement = $this->pdo->prepare("
-            SELECT c.id, c.conversation_type, cp.role
+            SELECT c.id, c.conversation_type, c.created_by, cp.role
             FROM conversations c
             INNER JOIN conversation_participants cp
                 ON cp.conversation_id = c.id
@@ -299,6 +299,57 @@ final class ConversationRepository
                 'conversation_id' => $conversationId,
                 'user_id' => $userId,
             ]);
+        }
+    }
+
+    public function findParticipantForRemoval(
+        int $conversationId,
+        string $participantPublicId
+    ): ?array {
+        $statement = $this->pdo->prepare("
+            SELECT
+                cp.user_id,
+                cp.role,
+                cp.left_at
+            FROM conversation_participants cp
+            INNER JOIN users u
+                ON u.id = cp.user_id
+            WHERE cp.conversation_id = :conversation_id
+              AND u.public_id = :participant_public_id
+            LIMIT 1
+        ");
+
+        $statement->execute([
+            'conversation_id' => $conversationId,
+            'participant_public_id' => $participantPublicId,
+        ]);
+
+        $participant = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return $participant === false ? null : $participant;
+    }
+
+    public function removeGroupParticipant(
+        int $conversationId,
+        int $userId
+    ): void {
+        $statement = $this->pdo->prepare("
+            UPDATE conversation_participants
+            SET left_at = CURRENT_TIMESTAMP
+            WHERE conversation_id = :conversation_id
+              AND user_id = :user_id
+              AND left_at IS NULL
+        ");
+
+        $statement->execute([
+            'conversation_id' => $conversationId,
+            'user_id' => $userId,
+        ]);
+
+        if ($statement->rowCount() !== 1) {
+            throw new RuntimeException(
+                'The group participant could not be removed.'
+            );
         }
     }
 

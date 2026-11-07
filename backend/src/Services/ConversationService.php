@@ -277,4 +277,112 @@ final class ConversationService
         }
     }
 
+
+    public function removeGroupParticipant(
+        int $adminUserId,
+        string $conversationPublicId,
+        string $participantPublicId
+    ): array {
+        try {
+            $this->pdo->beginTransaction();
+
+            $conversation = $this->conversations
+                ->lockGroupForParticipantManagement(
+                    $conversationPublicId,
+                    $adminUserId
+                );
+
+            if ($conversation === null) {
+                throw new ConversationException(
+                    'The conversation was not found or you are not an active participant.',
+                    404
+                );
+            }
+
+            if ($conversation['conversation_type'] !== 'group') {
+                throw new ConversationException(
+                    'Participants can only be removed from group conversations.',
+                    422
+                );
+            }
+
+            if ($conversation['role'] !== 'admin') {
+                throw new ConversationException(
+                    'Only group admins can remove participants.',
+                    403
+                );
+            }
+
+            $conversationId = (int) $conversation['id'];
+
+            $participant = $this->conversations
+                ->findParticipantForRemoval(
+                    $conversationId,
+                    $participantPublicId
+                );
+
+            if ($participant === null) {
+                throw new ConversationException(
+                    'The participant was not found in this conversation.',
+                    404
+                );
+            }
+
+            if ($participant['left_at'] !== null) {
+                throw new ConversationException(
+                    'The participant has already left this conversation.',
+                    409
+                );
+            }
+
+            $participantUserId = (int) $participant['user_id'];
+
+            if ($participantUserId === $adminUserId) {
+                throw new ConversationException(
+                    'You cannot remove yourself using the admin removal endpoint.',
+                    422
+                );
+            }
+
+            if (
+                $conversation['created_by'] !== null
+                && $participantUserId === (int) $conversation['created_by']
+            ) {
+                throw new ConversationException(
+                    'The group creator cannot be removed.',
+                    403
+                );
+            }
+
+            if ($participant['role'] === 'admin') {
+                throw new ConversationException(
+                    'Group admins cannot be removed through this endpoint.',
+                    403
+                );
+            }
+
+            $this->conversations->removeGroupParticipant(
+                $conversationId,
+                $participantUserId
+            );
+
+            $this->conversations->touchConversation($conversationId);
+
+            $result = [
+                'conversation' => $this->conversations->findById($conversationId),
+                'removed_count' => 1,
+            ];
+
+            $this->pdo->commit();
+
+            return $result;
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
 }

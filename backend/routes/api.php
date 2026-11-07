@@ -94,6 +94,11 @@ return static function (App $app): void {
         [$conversationController, 'addGroupParticipants']
     )->add($authMiddleware);
 
+    $app->delete(
+        '/api/v1/conversations/{conversationId}/participants/{participantPublicId}',
+        [$conversationController, 'removeGroupParticipant']
+    )->add($authMiddleware);
+
     $app->post(
         '/api/v1/auth/logout',
         [$sessionController, 'logout']

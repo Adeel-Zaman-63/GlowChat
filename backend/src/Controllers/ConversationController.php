@@ -403,4 +403,81 @@ final class ConversationController
         }
     }
 
+
+    public function removeGroupParticipant(
+        ServerRequestInterface $request,
+        ResponseInterface $response,
+        array $args
+    ): ResponseInterface {
+        $auth = $request->getAttribute('auth_session');
+
+        if (!is_array($auth) || !isset($auth['user_id'])) {
+            return ApiResponse::error(
+                $response,
+                'Authentication is required.',
+                401
+            );
+        }
+
+        $conversationPublicId = $args['conversationId'] ?? null;
+        $participantPublicId = $args['participantPublicId'] ?? null;
+
+        $uuidPattern =
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD';
+
+        if (
+            !is_string($conversationPublicId)
+            || preg_match($uuidPattern, $conversationPublicId) !== 1
+        ) {
+            return ApiResponse::error(
+                $response,
+                'A valid conversation UUID is required.',
+                422,
+                ['conversationId' => 'Provide a valid conversation public UUID.']
+            );
+        }
+
+        if (
+            !is_string($participantPublicId)
+            || preg_match($uuidPattern, $participantPublicId) !== 1
+        ) {
+            return ApiResponse::error(
+                $response,
+                'A valid participant UUID is required.',
+                422,
+                ['participantPublicId' => 'Provide a valid participant public UUID.']
+            );
+        }
+
+        try {
+            $pdo = Database::connect();
+
+            $service = new ConversationService(
+                $pdo,
+                new ConversationRepository($pdo)
+            );
+
+            $result = $service->removeGroupParticipant(
+                (int) $auth['user_id'],
+                $conversationPublicId,
+                $participantPublicId
+            );
+
+            return ApiResponse::success(
+                $response,
+                $result,
+                'Group participant removed successfully.'
+            );
+        } catch (ConversationException $exception) {
+            return ApiResponse::error(
+                $response,
+                $exception->getMessage(),
+                $exception->status(),
+                $exception->errors()
+            );
+        } catch (Throwable $exception) {
+            throw $exception;
+        }
+    }
+
 }
