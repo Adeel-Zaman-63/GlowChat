@@ -94,6 +94,11 @@ return static function (App $app): void {
         [$conversationController, 'addGroupParticipants']
     )->add($authMiddleware);
 
+    $app->patch(
+        '/api/v1/conversations/{conversationId}/participants/{participantPublicId}/role',
+        [$conversationController, 'changeGroupParticipantRole']
+    )->add($authMiddleware);
+
     $app->delete(
         '/api/v1/conversations/{conversationId}/participants/{participantPublicId}',
         [$conversationController, 'removeGroupParticipant']

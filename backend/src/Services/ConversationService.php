@@ -278,6 +278,110 @@ final class ConversationService
     }
 
 
+    public function changeGroupParticipantRole(
+        int $actorUserId,
+        string $conversationPublicId,
+        string $participantPublicId,
+        string $role
+    ): array {
+        if (!in_array($role, ['admin', 'member'], true)) {
+            throw new ConversationException(
+                'The requested participant role is invalid.',
+                422,
+                ['role' => 'Choose either admin or member.']
+            );
+        }
+
+        try {
+            $this->pdo->beginTransaction();
+
+            $conversation = $this->conversations
+                ->lockGroupForParticipantManagement(
+                    $conversationPublicId,
+                    $actorUserId
+                );
+
+            if ($conversation === null) {
+                throw new ConversationException(
+                    'The conversation was not found or you are not an active participant.',
+                    404
+                );
+            }
+
+            if ($conversation['conversation_type'] !== 'group') {
+                throw new ConversationException(
+                    'Participant roles can only be changed in group conversations.',
+                    422
+                );
+            }
+
+            if (
+                $conversation['created_by'] === null
+                || (int) $conversation['created_by'] !== $actorUserId
+            ) {
+                throw new ConversationException(
+                    'Only the group creator can change participant roles.',
+                    403
+                );
+            }
+
+            $conversationId = (int) $conversation['id'];
+
+            $participant = $this->conversations
+                ->findActiveParticipantForRoleChange(
+                    $conversationId,
+                    $participantPublicId
+                );
+
+            if ($participant === null) {
+                throw new ConversationException(
+                    'The active participant was not found in this group.',
+                    404
+                );
+            }
+
+            $participantUserId = (int) $participant['user_id'];
+
+            if ($participantUserId === $actorUserId) {
+                throw new ConversationException(
+                    'The group creator cannot change their own role.',
+                    403
+                );
+            }
+
+            if ($participant['role'] === $role) {
+                throw new ConversationException(
+                    'The participant already has the requested role.',
+                    409
+                );
+            }
+
+            $this->conversations->updateGroupParticipantRole(
+                $conversationId,
+                $participantUserId,
+                $role
+            );
+
+            $this->conversations->touchConversation($conversationId);
+
+            $result = [
+                'conversation' => $this->conversations->findById($conversationId),
+                'participant_public_id' => $participantPublicId,
+                'role' => $role,
+            ];
+
+            $this->pdo->commit();
+
+            return $result;
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
     public function removeGroupParticipant(
         int $adminUserId,
         string $conversationPublicId,
