@@ -119,6 +119,200 @@ final class ConversationRepository
         ];
     }
 
+    public function findActiveUserIdsByPublicIds(array $publicIds): array
+    {
+        if ($publicIds === []) {
+            return [];
+        }
+
+        $uuidArray = '{' . implode(',', $publicIds) . '}';
+
+        $statement = $this->pdo->prepare("
+            SELECT id, public_id
+            FROM users
+            WHERE public_id = ANY(CAST(:public_ids AS UUID[]))
+              AND account_status = 'active'
+            ORDER BY id
+            FOR SHARE
+        ");
+
+        $statement->execute(['public_ids' => $uuidArray]);
+
+        $users = [];
+
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $user) {
+            $users[strtolower($user['public_id'])] = (int) $user['id'];
+        }
+
+        return $users;
+    }
+
+    public function createGroup(
+        int $creatorUserId,
+        string $title,
+        array $participantUserIds
+    ): array {
+        $statement = $this->pdo->prepare("
+            INSERT INTO conversations (
+                conversation_type,
+                title,
+                created_by
+            )
+            VALUES (
+                'group',
+                :title,
+                :created_by
+            )
+            RETURNING id
+        ");
+
+        $statement->execute([
+            'title' => $title,
+            'created_by' => $creatorUserId,
+        ]);
+
+        $conversationId = (int) $statement->fetchColumn();
+
+        $participantStatement = $this->pdo->prepare("
+            INSERT INTO conversation_participants (
+                conversation_id,
+                user_id,
+                role
+            )
+            VALUES (
+                :conversation_id,
+                :user_id,
+                :role
+            )
+        ");
+
+        $participantStatement->execute([
+            'conversation_id' => $conversationId,
+            'user_id' => $creatorUserId,
+            'role' => 'admin',
+        ]);
+
+        foreach ($participantUserIds as $participantUserId) {
+            $participantStatement->execute([
+                'conversation_id' => $conversationId,
+                'user_id' => $participantUserId,
+                'role' => 'member',
+            ]);
+        }
+
+        return $this->findById($conversationId);
+    }
+
+    public function lockGroupForParticipantManagement(
+        string $conversationPublicId,
+        int $adminUserId
+    ): ?array {
+        $statement = $this->pdo->prepare("
+            SELECT c.id, c.conversation_type, cp.role
+            FROM conversations c
+            INNER JOIN conversation_participants cp
+                ON cp.conversation_id = c.id
+            WHERE c.public_id = :public_id
+              AND cp.user_id = :admin_user_id
+              AND cp.left_at IS NULL
+            FOR UPDATE OF c
+        ");
+
+        $statement->execute([
+            'public_id' => $conversationPublicId,
+            'admin_user_id' => $adminUserId,
+        ]);
+
+        $conversation = $statement->fetch(PDO::FETCH_ASSOC);
+
+        return $conversation === false ? null : $conversation;
+    }
+
+    public function findActiveParticipantUserIds(
+        int $conversationId,
+        array $userIds
+    ): array {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $idArray = '{' . implode(',', array_map('intval', $userIds)) . '}';
+
+        $statement = $this->pdo->prepare("
+            SELECT user_id
+            FROM conversation_participants
+            WHERE conversation_id = :conversation_id
+              AND user_id = ANY(CAST(:user_ids AS BIGINT[]))
+              AND left_at IS NULL
+        ");
+
+        $statement->execute([
+            'conversation_id' => $conversationId,
+            'user_ids' => $idArray,
+        ]);
+
+        return array_map(
+            'intval',
+            $statement->fetchAll(PDO::FETCH_COLUMN)
+        );
+    }
+
+    public function countActiveParticipants(int $conversationId): int
+    {
+        $statement = $this->pdo->prepare("
+            SELECT COUNT(*)
+            FROM conversation_participants
+            WHERE conversation_id = :conversation_id
+              AND left_at IS NULL
+        ");
+
+        $statement->execute(['conversation_id' => $conversationId]);
+
+        return (int) $statement->fetchColumn();
+    }
+
+    public function addGroupParticipants(
+        int $conversationId,
+        array $userIds
+    ): void {
+        $statement = $this->pdo->prepare("
+            INSERT INTO conversation_participants (
+                conversation_id,
+                user_id,
+                role
+            )
+            VALUES (
+                :conversation_id,
+                :user_id,
+                'member'
+            )
+            ON CONFLICT (conversation_id, user_id)
+            DO UPDATE SET
+                role = 'member',
+                joined_at = CURRENT_TIMESTAMP,
+                left_at = NULL
+            WHERE conversation_participants.left_at IS NOT NULL
+        ");
+
+        foreach ($userIds as $userId) {
+            $statement->execute([
+                'conversation_id' => $conversationId,
+                'user_id' => $userId,
+            ]);
+        }
+    }
+
+    public function touchConversation(int $conversationId): void
+    {
+        $statement = $this->pdo->prepare("
+            UPDATE conversations
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE id = :conversation_id
+        ");
+
+        $statement->execute(['conversation_id' => $conversationId]);
+    }
+
     public function findActiveCursorForUser(
         string $publicId,
         int $userId
@@ -247,7 +441,7 @@ final class ConversationRepository
         return $conversations;
     }
 
-    private function findById(int $conversationId): array
+    public function findById(int $conversationId): array
     {
         $statement = $this->pdo->prepare("
             SELECT

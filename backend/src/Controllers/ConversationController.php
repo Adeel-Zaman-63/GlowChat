@@ -186,4 +186,221 @@ final class ConversationController
             throw $exception;
         }
     }
+
+    public function createGroup(
+        ServerRequestInterface $request,
+        ResponseInterface $response
+    ): ResponseInterface {
+        $auth = $request->getAttribute('auth_session');
+
+        if (!is_array($auth) || !isset($auth['user_id'])) {
+            return ApiResponse::error(
+                $response,
+                'Authentication is required.',
+                401
+            );
+        }
+
+        $data = $request->getParsedBody();
+
+        if (!is_array($data)) {
+            return ApiResponse::error(
+                $response,
+                'A valid JSON request body is required.',
+                400
+            );
+        }
+
+        $title = $data['title'] ?? null;
+
+        if (
+            !is_string($title)
+            || trim($title) === ''
+            || mb_strlen(trim($title), 'UTF-8') > 100
+        ) {
+            return ApiResponse::error(
+                $response,
+                'A valid group title is required.',
+                422,
+                ['title' => 'The title must contain between 1 and 100 characters.']
+            );
+        }
+
+        $participantPublicIds = $data['participant_public_ids'] ?? null;
+
+        if (
+            !is_array($participantPublicIds)
+            || !array_is_list($participantPublicIds)
+            || count($participantPublicIds) < 1
+            || count($participantPublicIds) > 99
+        ) {
+            return ApiResponse::error(
+                $response,
+                'A valid participant_public_ids list is required.',
+                422,
+                ['participant_public_ids' => 'Provide between 1 and 99 participant UUIDs.']
+            );
+        }
+
+        $uuidPattern =
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD';
+
+        foreach ($participantPublicIds as $index => $publicId) {
+            if (
+                !is_string($publicId)
+                || preg_match($uuidPattern, $publicId) !== 1
+            ) {
+                return ApiResponse::error(
+                    $response,
+                    'One or more participant UUIDs are invalid.',
+                    422,
+                    [
+                        'participant_public_ids' =>
+                            "Entry {$index} must be a valid public UUID.",
+                    ]
+                );
+            }
+        }
+
+        try {
+            $pdo = Database::connect();
+
+            $service = new ConversationService(
+                $pdo,
+                new ConversationRepository($pdo)
+            );
+
+            $conversation = $service->createGroup(
+                (int) $auth['user_id'],
+                trim($title),
+                $participantPublicIds
+            );
+
+            return ApiResponse::success(
+                $response,
+                ['conversation' => $conversation],
+                'Group conversation created successfully.',
+                201
+            );
+        } catch (ConversationException $exception) {
+            return ApiResponse::error(
+                $response,
+                $exception->getMessage(),
+                $exception->status(),
+                $exception->errors()
+            );
+        } catch (Throwable $exception) {
+            throw $exception;
+        }
+    }
+
+    public function addGroupParticipants(
+        ServerRequestInterface $request,
+        ResponseInterface $response,
+        array $args
+    ): ResponseInterface {
+        $auth = $request->getAttribute('auth_session');
+
+        if (!is_array($auth) || !isset($auth['user_id'])) {
+            return ApiResponse::error(
+                $response,
+                'Authentication is required.',
+                401
+            );
+        }
+
+        $conversationPublicId = $args['conversationId'] ?? null;
+
+        if (
+            !is_string($conversationPublicId)
+            || preg_match(
+                '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD',
+                $conversationPublicId
+            ) !== 1
+        ) {
+            return ApiResponse::error(
+                $response,
+                'A valid conversation UUID is required.',
+                422,
+                ['conversationId' => 'Provide a valid conversation public UUID.']
+            );
+        }
+
+        $data = $request->getParsedBody();
+
+        if (!is_array($data)) {
+            return ApiResponse::error(
+                $response,
+                'A valid JSON request body is required.',
+                400
+            );
+        }
+
+        $participantPublicIds = $data['participant_public_ids'] ?? null;
+
+        if (
+            !is_array($participantPublicIds)
+            || !array_is_list($participantPublicIds)
+            || count($participantPublicIds) < 1
+            || count($participantPublicIds) > 99
+        ) {
+            return ApiResponse::error(
+                $response,
+                'A valid participant_public_ids list is required.',
+                422,
+                ['participant_public_ids' => 'Provide between 1 and 99 participant UUIDs.']
+            );
+        }
+
+        $uuidPattern =
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iD';
+
+        foreach ($participantPublicIds as $index => $publicId) {
+            if (
+                !is_string($publicId)
+                || preg_match($uuidPattern, $publicId) !== 1
+            ) {
+                return ApiResponse::error(
+                    $response,
+                    'One or more participant UUIDs are invalid.',
+                    422,
+                    [
+                        'participant_public_ids' =>
+                            "Entry {$index} must be a valid public UUID.",
+                    ]
+                );
+            }
+        }
+
+        try {
+            $pdo = Database::connect();
+
+            $service = new ConversationService(
+                $pdo,
+                new ConversationRepository($pdo)
+            );
+
+            $result = $service->addGroupParticipants(
+                (int) $auth['user_id'],
+                $conversationPublicId,
+                $participantPublicIds
+            );
+
+            return ApiResponse::success(
+                $response,
+                $result,
+                'Group participants added successfully.'
+            );
+        } catch (ConversationException $exception) {
+            return ApiResponse::error(
+                $response,
+                $exception->getMessage(),
+                $exception->status(),
+                $exception->errors()
+            );
+        } catch (Throwable $exception) {
+            throw $exception;
+        }
+    }
+
 }

@@ -85,6 +85,16 @@ return static function (App $app): void {
     )->add($authMiddleware);
 
     $app->post(
+        '/api/v1/conversations/group',
+        [$conversationController, 'createGroup']
+    )->add($authMiddleware);
+
+    $app->post(
+        '/api/v1/conversations/{conversationId}/participants',
+        [$conversationController, 'addGroupParticipants']
+    )->add($authMiddleware);
+
+    $app->post(
         '/api/v1/auth/logout',
         [$sessionController, 'logout']
     )->add($authMiddleware);

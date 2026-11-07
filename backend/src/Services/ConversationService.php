@@ -100,4 +100,181 @@ final class ConversationService
             throw $exception;
         }
     }
+
+    public function createGroup(
+        int $creatorUserId,
+        string $title,
+        array $participantPublicIds
+    ): array {
+        if (count($participantPublicIds) !== count(array_unique(
+            array_map('strtolower', $participantPublicIds)
+        ))) {
+            throw new ConversationException(
+                'Duplicate group participants are not allowed.',
+                422,
+                ['participant_public_ids' => 'Remove duplicate UUIDs.']
+            );
+        }
+
+        try {
+            $this->pdo->beginTransaction();
+
+            $usersByPublicId = $this->conversations
+                ->findActiveUserIdsByPublicIds($participantPublicIds);
+
+            if (count($usersByPublicId) !== count($participantPublicIds)) {
+                throw new ConversationException(
+                    'One or more participants were not found or are unavailable.',
+                    404,
+                    ['participant_public_ids' => 'Use UUIDs belonging to active accounts.']
+                );
+            }
+
+            $participantUserIds = [];
+
+            foreach ($participantPublicIds as $publicId) {
+                $userId = $usersByPublicId[strtolower($publicId)];
+
+                if ($userId === $creatorUserId) {
+                    throw new ConversationException(
+                        'The group creator must not be included in the participant list.',
+                        422,
+                        ['participant_public_ids' => 'The creator is added automatically.']
+                    );
+                }
+
+                $participantUserIds[] = $userId;
+            }
+
+            $conversation = $this->conversations->createGroup(
+                $creatorUserId,
+                $title,
+                $participantUserIds
+            );
+
+            $this->pdo->commit();
+
+            return $conversation;
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
+    public function addGroupParticipants(
+        int $adminUserId,
+        string $conversationPublicId,
+        array $participantPublicIds
+    ): array {
+        if (count($participantPublicIds) !== count(array_unique(
+            array_map('strtolower', $participantPublicIds)
+        ))) {
+            throw new ConversationException(
+                'Duplicate group participants are not allowed.',
+                422,
+                ['participant_public_ids' => 'Remove duplicate UUIDs.']
+            );
+        }
+
+        try {
+            $this->pdo->beginTransaction();
+
+            $conversation = $this->conversations
+                ->lockGroupForParticipantManagement(
+                    $conversationPublicId,
+                    $adminUserId
+                );
+
+            if ($conversation === null) {
+                throw new ConversationException(
+                    'The conversation was not found or you are not an active participant.',
+                    404
+                );
+            }
+
+            if ($conversation['conversation_type'] !== 'group') {
+                throw new ConversationException(
+                    'Participants can only be added to group conversations.',
+                    422
+                );
+            }
+
+            if ($conversation['role'] !== 'admin') {
+                throw new ConversationException(
+                    'Only group admins can add participants.',
+                    403
+                );
+            }
+
+            $conversationId = (int) $conversation['id'];
+
+            $usersByPublicId = $this->conversations
+                ->findActiveUserIdsByPublicIds($participantPublicIds);
+
+            if (count($usersByPublicId) !== count($participantPublicIds)) {
+                throw new ConversationException(
+                    'One or more users were not found or are unavailable.',
+                    404,
+                    ['participant_public_ids' => 'Use UUIDs belonging to active accounts.']
+                );
+            }
+
+            $participantUserIds = [];
+
+            foreach ($participantPublicIds as $publicId) {
+                $participantUserIds[] = $usersByPublicId[strtolower($publicId)];
+            }
+
+            $alreadyActive = $this->conversations
+                ->findActiveParticipantUserIds(
+                    $conversationId,
+                    $participantUserIds
+                );
+
+            if ($alreadyActive !== []) {
+                throw new ConversationException(
+                    'One or more users are already active participants.',
+                    409,
+                    ['participant_public_ids' => 'Remove users who are already in the group.']
+                );
+            }
+
+            $currentCount = $this->conversations
+                ->countActiveParticipants($conversationId);
+
+            if ($currentCount + count($participantUserIds) > 100) {
+                throw new ConversationException(
+                    'The group cannot contain more than 100 active participants.',
+                    422,
+                    ['participant_public_ids' => 'The group has insufficient remaining capacity.']
+                );
+            }
+
+            $this->conversations->addGroupParticipants(
+                $conversationId,
+                $participantUserIds
+            );
+
+            $this->conversations->touchConversation($conversationId);
+
+            $result = [
+                'conversation' => $this->conversations->findById($conversationId),
+                'added_count' => count($participantUserIds),
+            ];
+
+            $this->pdo->commit();
+
+            return $result;
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
 }
