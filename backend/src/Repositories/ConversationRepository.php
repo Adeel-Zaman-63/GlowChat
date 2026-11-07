@@ -353,6 +353,21 @@ final class ConversationRepository
         }
     }
 
+    public function countActiveGroupAdmins(int $conversationId): int
+    {
+        $statement = $this->pdo->prepare("
+            SELECT COUNT(*)
+            FROM conversation_participants
+            WHERE conversation_id = :conversation_id
+              AND role = 'admin'
+              AND left_at IS NULL
+        ");
+
+        $statement->execute(['conversation_id' => $conversationId]);
+
+        return (int) $statement->fetchColumn();
+    }
+
     public function touchConversation(int $conversationId): void
     {
         $statement = $this->pdo->prepare("

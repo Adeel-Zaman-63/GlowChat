@@ -100,6 +100,11 @@ return static function (App $app): void {
     )->add($authMiddleware);
 
     $app->post(
+        '/api/v1/conversations/{conversationId}/leave',
+        [$conversationController, 'leaveGroupConversation']
+    )->add($authMiddleware);
+
+    $app->post(
         '/api/v1/auth/logout',
         [$sessionController, 'logout']
     )->add($authMiddleware);

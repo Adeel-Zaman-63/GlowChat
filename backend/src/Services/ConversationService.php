@@ -385,4 +385,80 @@ final class ConversationService
         }
     }
 
+
+    public function leaveGroupConversation(
+        int $userId,
+        string $conversationPublicId
+    ): array {
+        try {
+            $this->pdo->beginTransaction();
+
+            $conversation = $this->conversations
+                ->lockGroupForParticipantManagement(
+                    $conversationPublicId,
+                    $userId
+                );
+
+            if ($conversation === null) {
+                throw new ConversationException(
+                    'The conversation was not found or you are not an active participant.',
+                    404
+                );
+            }
+
+            if ($conversation['conversation_type'] !== 'group') {
+                throw new ConversationException(
+                    'Only group participants can use this leave endpoint.',
+                    422
+                );
+            }
+
+            if (
+                $conversation['created_by'] !== null
+                && (int) $conversation['created_by'] === $userId
+            ) {
+                throw new ConversationException(
+                    'The group creator cannot leave until ownership transfer is supported.',
+                    403
+                );
+            }
+
+            if ($conversation['role'] === 'admin') {
+                $activeAdminCount = $this->conversations
+                    ->countActiveGroupAdmins((int) $conversation['id']);
+
+                if ($activeAdminCount <= 1) {
+                    throw new ConversationException(
+                        'You cannot leave because the group must retain an active admin.',
+                        409
+                    );
+                }
+            }
+
+            $conversationId = (int) $conversation['id'];
+
+            $this->conversations->removeGroupParticipant(
+                $conversationId,
+                $userId
+            );
+
+            $this->conversations->touchConversation($conversationId);
+
+            $result = [
+                'conversation' => $this->conversations->findById($conversationId),
+                'left_count' => 1,
+            ];
+
+            $this->pdo->commit();
+
+            return $result;
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
 }
