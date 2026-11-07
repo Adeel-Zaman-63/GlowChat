@@ -8,6 +8,8 @@ use GlowChat\Controllers\LoginController;
 use GlowChat\Controllers\RegistrationController;
 use GlowChat\Controllers\RefreshController;
 use GlowChat\Controllers\SessionController;
+use GlowChat\Controllers\ConversationController;
+use GlowChat\Controllers\MessageController;
 use GlowChat\Middleware\AuthMiddleware;
 use GlowChat\Repositories\SessionRepository;
 use GlowChat\Services\SessionAuthenticationService;
@@ -20,6 +22,8 @@ return static function (App $app): void {
     $loginController = new LoginController();
     $refreshController = new RefreshController();
     $sessionController = new SessionController();
+    $conversationController = new ConversationController();
+    $messageController = new MessageController();
 
     $pdo = Database::connect();
 
@@ -49,6 +53,36 @@ return static function (App $app): void {
         '/api/v1/auth/register',
         [$registrationController, 'register']
     );
+
+    $app->get(
+        '/api/v1/conversations',
+        [$conversationController, 'list']
+    )->add($authMiddleware);
+
+    $app->get(
+        '/api/v1/conversations/{conversationId}/messages',
+        [$messageController, 'list']
+    )->add($authMiddleware);
+
+    $app->post(
+        '/api/v1/conversations/{conversationId}/messages',
+        [$messageController, 'send']
+    )->add($authMiddleware);
+
+    $app->post(
+        '/api/v1/conversations/{conversationId}/messages/{messageId}/delivered',
+        [$messageController, 'acknowledgeDelivered']
+    )->add($authMiddleware);
+
+    $app->post(
+        '/api/v1/conversations/{conversationId}/messages/{messageId}/read',
+        [$messageController, 'acknowledgeRead']
+    )->add($authMiddleware);
+
+    $app->post(
+        '/api/v1/conversations/direct',
+        [$conversationController, 'createDirect']
+    )->add($authMiddleware);
 
     $app->post(
         '/api/v1/auth/logout',
